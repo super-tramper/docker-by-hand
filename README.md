@@ -5,7 +5,7 @@
 # 构建docker镜像
 docker build -t golang:lab
 # 进入容器shell
-docker run -it --rm --privileged --name golab -v /Users/imte/code/repository/docker:/go/src -w /go/src golang /bin/bash
+docker run -it --rm --privileged --name golab -v /project/path:/go/src -w /go/src golang /bin/bash
 # 直接运行go run main.go
-docker run -it --rm --privileged --name golab -v /Users/imte/code/repository/docker:/go/src -w /go/src golang:lab go run main.go
+docker run -it --rm --privileged --name golab -v /project/path:/go/src -w /go/src golang:lab go run main.go
 ```
