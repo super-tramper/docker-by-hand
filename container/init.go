@@ -19,6 +19,8 @@ func RunContainerInitProcess() error {
 		return fmt.Errorf("Run container get user command error, cmdArray is nil")
 	}
 
+	setUpMount()
+
 	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), "")
 
@@ -80,8 +82,12 @@ func pivotRoot(root string) error {
 	if err := os.Mkdir(pivotDir, 0777); err != nil {
 		return err
 	}
+
 	// pivot_root 到新的rootfs, 现在老的 old_root 是挂载在rootfs/.pivot_root
 	// 挂载点现在依然可以在mount命令中看到
+
+	// 将当前进程的root文件系统移动到put_old文件夹中，然后使new_root成为新的root 文件系统
+	//func PivotRoot(newroot string, putold string) (err error)
 	if err := syscall.PivotRoot(root, pivotDir); err != nil {
 		return fmt.Errorf("pivot_root %v", err)
 	}
