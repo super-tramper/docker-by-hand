@@ -3,7 +3,6 @@
 package cmd
 
 import (
-	"docker/cgroups"
 	"docker/cgroups/subsystems"
 	"docker/container"
 	log "github.com/sirupsen/logrus"
@@ -20,14 +19,11 @@ func Run(tty bool, comArray []string, res *subsystems.ResourceConfig) {
 	if err := parent.Start(); err != nil {
 		log.Error(err)
 	}
-	// use mydocker-cgroup as cgroup name
-	cgroupManager := cgroups.NewCgroupManager("mydocker-cgroup")
-	defer cgroupManager.Destroy()
-	cgroupManager.Set(res)
-	cgroupManager.Apply(parent.Process.Pid)
 
+	// 发送用户指令
 	sendInitCommand(comArray, writePipe)
 	parent.Wait()
+	os.Exit(0)
 }
 
 func sendInitCommand(comArray []string, writePipe *os.File) {

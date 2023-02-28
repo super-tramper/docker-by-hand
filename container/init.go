@@ -19,7 +19,8 @@ func RunContainerInitProcess() error {
 		return fmt.Errorf("Run container get user command error, cmdArray is nil")
 	}
 
-	//setUpMount()
+	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
+	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), "")
 
 	path, err := exec.LookPath(cmdArray[0])
 	if err != nil {
@@ -36,6 +37,7 @@ func RunContainerInitProcess() error {
 }
 
 func readUserCommand() []string {
+	// uintptr(3)就是指index为3的文件描述符，也就是传递进来的管道的一端
 	pipe := os.NewFile(uintptr(3), "pipe")
 	msg, err := ioutil.ReadAll(pipe)
 	if err != nil {

@@ -25,11 +25,13 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
+	// 带着文件句柄创建子进程
 	cmd.ExtraFiles = []*os.File{readPipe}
 	return cmd, writePipe
 }
 
 func NewPipe() (*os.File, *os.File, error) {
+	// 创建匿名管道，返回读写两端
 	read, write, err := os.Pipe()
 	if err != nil {
 		return nil, nil, err
