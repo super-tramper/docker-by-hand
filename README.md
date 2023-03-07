@@ -18,8 +18,4 @@ go run main.go run -ti -m 100m stress --vm 1 --vm-bytes 200m --vm-keep
 # cpu时间片分配比例
 nohup stress --vm-bytes 200m --vm-keep --vm 1 &
 go run main.go run -ti -cpushare 512 stress --vm-bytes 200m --vm-keep --vm 1
-
-# 容器支持overlayFS
-docker run --storage-driver overlay -it --name golab --rm --privileged -v /project/path:/go/src -w /go/src golang:lab
-go run main.go run -ti -cpushare 512 stress --vm-bytes 200m --vm-keep --vm 1
 ```
