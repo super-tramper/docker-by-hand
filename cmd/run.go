@@ -3,14 +3,13 @@
 package cmd
 
 import (
-	"docker/cgroups/subsystems"
 	"docker/container"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"
 )
 
-func Run(tty bool, comArray []string, res *subsystems.ResourceConfig) {
+func Run(tty bool, comArray []string) {
 	parent, writePipe := container.NewParentProcess(tty)
 	if parent == nil {
 		log.Errorf("New parent process error")
@@ -23,6 +22,9 @@ func Run(tty bool, comArray []string, res *subsystems.ResourceConfig) {
 	// 发送用户指令
 	sendInitCommand(comArray, writePipe)
 	parent.Wait()
+	mntURL := "/root/mnt/"
+	rootURL := "/root/"
+	container.DeleteWorkSpace(rootURL, mntURL)
 	os.Exit(0)
 }
 
