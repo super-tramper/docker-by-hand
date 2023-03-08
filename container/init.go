@@ -60,6 +60,7 @@ func setUpMount() {
 	pivotRoot(pwd)
 
 	//mount proc
+	// 4.2 中退出容器时未恢复这些mount，系统会异常，通过 mount -t proc proc /proc解决
 	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), "")
 
