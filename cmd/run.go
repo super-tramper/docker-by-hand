@@ -10,9 +10,9 @@ import (
 )
 
 // Run 运行用户命令
-func Run(tty bool, comArray []string) {
+func Run(tty bool, comArray []string, volume string) {
 	// 对创建出来的进程进行初始化
-	parent, writePipe := container.NewParentProcess(tty)
+	parent, writePipe := container.NewParentProcess(tty, volume)
 	if parent == nil {
 		log.Errorf("New parent process error")
 		return
@@ -26,7 +26,7 @@ func Run(tty bool, comArray []string) {
 	parent.Wait()
 	mntURL := "/root/mnt/"
 	rootURL := "/root/"
-	container.DeleteWorkSpace(rootURL, mntURL)
+	container.DeleteWorkSpace(rootURL, mntURL, volume)
 	os.Exit(0)
 }
 

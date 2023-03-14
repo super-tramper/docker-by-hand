@@ -3,13 +3,15 @@
 package container
 
 import (
+	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
-func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
+func NewParentProcess(tty bool, volume string) (*exec.Cmd, *os.File) {
 	readPipe, writePipe, err := NewPipe()
 	if err != nil {
 		log.Errorf("New pipe error %v", err)
@@ -29,7 +31,7 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 	cmd.ExtraFiles = []*os.File{readPipe}
 	mntURL := "/root/mnt/"
 	rootURL := "/root/"
-	NewWorkSpace(rootURL, mntURL)
+	NewWorkSpace(rootURL, mntURL, volume)
 	// 指定工作目录
 	cmd.Dir = mntURL
 	return cmd, writePipe
@@ -45,10 +47,20 @@ func NewPipe() (*os.File, *os.File, error) {
 }
 
 // NewWorkSpace Create a AUFS filesystem as container root workspace
-func NewWorkSpace(rootURL, mntURL string) {
+func NewWorkSpace(rootURL, mntURL, volume string) {
 	CreateReadOnlyLayer(rootURL)
 	CreateWriteLayer(rootURL)
 	CreateMountPoint(rootURL, mntURL)
+	if volume != "" {
+		volumeURLs := volumeUrlExtract(volume)
+		length := len(volumeURLs)
+		if length == 2 && volumeURLs[0] != "" && volumeURLs[1] != "" {
+			MountVolume(rootURL, mntURL, volumeURLs)
+			log.Infof("%q", volumeURLs)
+		} else {
+			log.Infof("Volume parameter input is not correct.")
+		}
+	}
 }
 
 // CreateReadOnlyLayer 将busybox.tar解压到busybox目录下，作为容器的只读层
@@ -77,6 +89,26 @@ func CreateWriteLayer(rootURL string) {
 	}
 }
 
+func MountVolume(rootURL, mntURL string, volumeURLs []string) {
+	parentUrl := volumeURLs[0]
+	if err := os.Mkdir(parentUrl, 0777); err != nil {
+		log.Infof("Mkdir parent dir %s error. %v", parentUrl, err)
+	}
+	containerUrl := volumeURLs[1]
+	containerVolumeURL := mntURL + containerUrl
+	if err := os.Mkdir(containerVolumeURL, 0777); err != nil {
+		log.Infof("Mkdir container dir %s error. %v", containerVolumeURL, err)
+	}
+	dirs := "dirs=" + parentUrl
+	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", containerVolumeURL)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Errorf("Mount volume failed. %v", err)
+	}
+
+}
+
 func CreateMountPoint(rootURL string, mntURL string) {
 	// 创建mnt文件夹作为挂载点
 	if err := os.Mkdir(mntURL, 0777); err != nil {
@@ -92,30 +124,56 @@ func CreateMountPoint(rootURL string, mntURL string) {
 }
 
 // DeleteWorkSpace Delete the AUFS filesystem while container exit
-func DeleteWorkSpace(rootURL string, mntURL string) {
-	DeleteMountPoint(rootURL, mntURL)
+func DeleteWorkSpace(rootURL, mntURL, volume string) {
+	if volume != "" {
+		volumeURLs := volumeUrlExtract(volume)
+		length := len(volumeURLs)
+		if length == 2 && volumeURLs[0] != "" && volumeURLs[1] != "" {
+			DeleteMountPointWithVolume(rootURL, mntURL, volumeURLs)
+		} else {
+			DeleteMountPoint(rootURL, mntURL)
+		}
+	} else {
+		DeleteMountPoint(rootURL, mntURL)
+	}
 	DeleteWriteLayer(rootURL)
+}
+
+func DeleteMountPointWithVolume(rootURL, mntURL string, volumeURLs []string) {
+	containerUrl := mntURL + volumeURLs[1]
+	cmd := exec.Command("umount", containerUrl)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Errorf("Umount volume failed. %v", err)
+	}
+
+	DeleteMountPoint(rootURL, mntURL)
 }
 
 func DeleteMountPoint(rootURL, mntURL string) {
 	// 多次挂载，卸载两次
-	cmd1 := exec.Command("umount", mntURL)
-	cmd1.Stdout = os.Stdout
-	cmd1.Stderr = os.Stderr
-	if err := cmd1.Run(); err != nil {
+	if err := UmountMountPoint(mntURL); err != nil {
 		log.Errorf("DeleteMountPoint1 %v", err)
 	}
-	log.Infof("umount 1")
-	cmd2 := exec.Command("umount", mntURL)
-	cmd2.Stdout = os.Stdout
-	cmd2.Stderr = os.Stderr
-	if err := cmd2.Run(); err != nil {
+	if err := UmountMountPoint(mntURL); err != nil {
 		log.Errorf("DeleteMountPoint1 %v", err)
 	}
-	log.Infof("umount 2")
+
 	if err := os.RemoveAll(mntURL); err != nil {
 		log.Errorf("DeleteMountPoint2 Remove dir %s error %v", mntURL, err)
 	}
+}
+
+func UmountMountPoint(mntURL string) error {
+	cmd := exec.Command("umount", mntURL)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Errorf("DeleteMountPoint1 %v", err)
+		return fmt.Errorf("DeleteMountPoint1 %v", err)
+	}
+	return nil
 }
 
 func DeleteWriteLayer(rootURL string) {
@@ -134,4 +192,10 @@ func PathExists(path string) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+func volumeUrlExtract(volume string) []string {
+	var volumeURLs []string
+	volumeURLs = strings.Split(volume, ":")
+	return volumeURLs
 }

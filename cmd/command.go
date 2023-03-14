@@ -18,10 +18,14 @@ var runCommand = cli.Command{
 			Name:  "ti",
 			Usage: "enable tty",
 		},
+		cli.StringFlag{
+			Name:  "v",
+			Usage: "volume",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		if len(context.Args()) < 1 {
-			return fmt.Errorf("Missing container command")
+			return fmt.Errorf("missing container command")
 		}
 		var cmdArray []string
 		for _, arg := range context.Args() {
@@ -29,7 +33,8 @@ var runCommand = cli.Command{
 		}
 		tty := context.Bool("ti")
 
-		Run(tty, cmdArray)
+		volume := context.String("v")
+		Run(tty, cmdArray, volume)
 		return nil
 	},
 }
