@@ -13,6 +13,7 @@ import (
 	"syscall"
 )
 
+// RunContainerInitProcess 初始化容器环境
 func RunContainerInitProcess() error {
 	cmdArray := readUserCommand()
 	if cmdArray == nil || len(cmdArray) == 0 {
@@ -29,6 +30,7 @@ func RunContainerInitProcess() error {
 	log.Infof("Find path %s", path)
 	//调用了Kernel的int execve（const char*filename，char*const argv[]，char*const envp[]）；
 	//这个系统函数。它的作用是执行当前filename对应的程序。它会覆盖当前进程的镜像、数据和堆栈等信息，包括PID，这些都会被将要运行的进程覆盖掉。
+	//调用这个方法，将用户指定的进程运行起来，把最初的init进程给替换掉，这样当进入到容器内部的时候，就会发现容器内的第一个程序就是我们指定的进程了
 	if err := syscall.Exec(path, cmdArray[0:], os.Environ()); err != nil {
 		log.Errorf(err.Error())
 	}
@@ -57,14 +59,23 @@ func setUpMount() {
 		return
 	}
 	log.Infof("Current location is %s", pwd)
-	pivotRoot(pwd)
+	if err = pivotRoot(pwd); err != nil {
+		log.Errorf("pivot mount err: %v", err)
+		return
+	}
 
 	//mount proc
 	// 4.2 中退出容器时未恢复这些mount，系统会异常，通过 mount -t proc proc /proc解决
 	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
-	syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), "")
+	if err = syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), ""); err != nil {
+		log.Errorf("mount proc error: %v", err)
+		return
+	}
 
-	syscall.Mount("tmpfs", "/dev", "tmpfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755")
+	if err = syscall.Mount("tmpfs", "/dev", "tmpfs", syscall.MS_NOSUID|syscall.MS_STRICTATIME, "mode=755"); err != nil {
+		log.Errorf("mount tmpfs error: %v", err)
+		return
+	}
 }
 
 func pivotRoot(root string) error {
@@ -73,11 +84,15 @@ func pivotRoot(root string) error {
 	  bind mount是把相同的内容换了一个挂载点的挂载方法
 	*/
 	if err := syscall.Mount(root, root, "bind", syscall.MS_BIND|syscall.MS_REC, ""); err != nil {
-		return fmt.Errorf("Mount rootfs to itself error: %v", err)
+		return fmt.Errorf("mount rootfs to itself error: %v", err)
+	}
+	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
+		return fmt.Errorf("declare independence of mount namespace error: %v", err)
 	}
 	// 创建 rootfs/.pivot_root 存储 old_root
 	pivotDir := filepath.Join(root, ".pivot_root")
 	if err := os.Mkdir(pivotDir, 0777); err != nil {
+		log.Errorf("mkdir %s err: %v", pivotDir, err)
 		return err
 	}
 
@@ -87,6 +102,7 @@ func pivotRoot(root string) error {
 	// 将当前进程的root文件系统移动到put_old文件夹中，然后使new_root成为新的root 文件系统
 	//func PivotRoot(newroot string, putold string) (err error)
 	if err := syscall.PivotRoot(root, pivotDir); err != nil {
+		log.Errorf("syscall.PivotRoot %s %s err: %v", root, pivotDir, err)
 		return fmt.Errorf("pivot_root %v", err)
 	}
 	// 修改当前的工作目录到根目录

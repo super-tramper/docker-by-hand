@@ -2,7 +2,9 @@
 
 package main
 
-import "docker/cmd"
+import (
+	"docker/cmd"
+)
 
 func main() {
 	cmd.RunApp()

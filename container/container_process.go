@@ -30,6 +30,7 @@ func NewParentProcess(tty bool) (*exec.Cmd, *os.File) {
 	mntURL := "/root/mnt/"
 	rootURL := "/root/"
 	NewWorkSpace(rootURL, mntURL)
+	// 指定工作目录
 	cmd.Dir = mntURL
 	return cmd, writePipe
 }
@@ -44,7 +45,7 @@ func NewPipe() (*os.File, *os.File, error) {
 }
 
 // NewWorkSpace Create a AUFS filesystem as container root workspace
-func NewWorkSpace(rootURL string, mntURL string) {
+func NewWorkSpace(rootURL, mntURL string) {
 	CreateReadOnlyLayer(rootURL)
 	CreateWriteLayer(rootURL)
 	CreateMountPoint(rootURL, mntURL)
@@ -79,27 +80,14 @@ func CreateWriteLayer(rootURL string) {
 func CreateMountPoint(rootURL string, mntURL string) {
 	// 创建mnt文件夹作为挂载点
 	if err := os.Mkdir(mntURL, 0777); err != nil {
-		log.Errorf("Mkdir dir %s error. %v", mntURL, err)
+		log.Infof("Mkdir mountpoint dir %s error. %v", mntURL, err)
 	}
-	var tempDir = "tmp"
-	if err := os.Mkdir(rootURL+tempDir, 0777); err != nil {
-		log.Errorf("Mkdir dir %s error. %v", mntURL+tempDir, err)
-	}
-	// 把writeLayer目录和busybox目录mount到mnt目录下
-	//dirs := "dirs=" + rootURL + "writeLayer:" + rootURL + "busybox"
-	dirs := "lowerdir=" + rootURL + "busybox" + ",upperdir=" + rootURL + "writeLayer" + ",workdir=" + rootURL + tempDir
-	//mount -t aufs -o dirs=/root/test2:/root/test1 none /root/mnt/
-	//mount -t overlay overlay -o lowerdir=/home/kali/lower,upperdir=/home/kali/upper,workdir=/home/kali/workdir /mnt/overlay_test
-	//mount -t overlay overlay -o lowerdir=/home/kali/Desktop/test1,upperdir=/home/kali/Desktop/test2,workdir=/home/kali/Desktop/test3 /home/kali/Desktop/test4
-	//mount -t overlay overlay -o lowerdir=/home/uos/test1,upperdir=/home/uos/test2,workdir=/home/uos/test3 /home/uos/test4
-	// mount -t overlay overlay -o lowerdir=/home/kali/Desktop/test1,upperdir=/home/kali/Desktop/test2,workdir=/home/kali/Desktop/test3 /home/kali/Desktop/test4
-	// mount -t overlay overlay -o lowerdir=/root/test1,upperdir=/root/test2,workdir=/root/test3 /root/test4
-	// mount -t overlay overlay -o lowerdir=/root/busybox,upperdir=/root/writeLayer,workdir=/root/tmp /root/mnt/
-	cmd := exec.Command("mount", "-t", "overlay", "overlay", "-o", dirs, mntURL)
+	dirs := "dirs=" + rootURL + "writeLayer:" + rootURL + "busybox"
+	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mntURL)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		log.Errorf("%v", err)
+		log.Errorf("Mount mountpoint dir failed. %v", err)
 	}
 }
 
@@ -109,13 +97,22 @@ func DeleteWorkSpace(rootURL string, mntURL string) {
 	DeleteWriteLayer(rootURL)
 }
 
-func DeleteMountPoint(rootURL string, mntURL string) {
-	cmd := exec.Command("umount", mntURL)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+func DeleteMountPoint(rootURL, mntURL string) {
+	// 多次挂载，卸载两次
+	cmd1 := exec.Command("umount", mntURL)
+	cmd1.Stdout = os.Stdout
+	cmd1.Stderr = os.Stderr
+	if err := cmd1.Run(); err != nil {
 		log.Errorf("DeleteMountPoint1 %v", err)
 	}
+	log.Infof("umount 1")
+	cmd2 := exec.Command("umount", mntURL)
+	cmd2.Stdout = os.Stdout
+	cmd2.Stderr = os.Stderr
+	if err := cmd2.Run(); err != nil {
+		log.Errorf("DeleteMountPoint1 %v", err)
+	}
+	log.Infof("umount 2")
 	if err := os.RemoveAll(mntURL); err != nil {
 		log.Errorf("DeleteMountPoint2 Remove dir %s error %v", mntURL, err)
 	}
