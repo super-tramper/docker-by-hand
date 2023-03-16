@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"docker/cgroups/subsystems"
 	"docker/container"
 	"fmt"
 	log "github.com/sirupsen/logrus"
@@ -22,6 +23,22 @@ var runCommand = cli.Command{
 			Name:  "v",
 			Usage: "volume",
 		},
+		cli.BoolFlag{
+			Name:  "d",
+			Usage: "detach container",
+		},
+		cli.StringFlag{
+			Name:  "m",
+			Usage: "memory limit",
+		},
+		cli.StringFlag{
+			Name:  "cpushare",
+			Usage: "cpushare limit",
+		},
+		cli.StringFlag{
+			Name:  "cpuset",
+			Usage: "cpuset limit",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		if len(context.Args()) < 1 {
@@ -32,9 +49,20 @@ var runCommand = cli.Command{
 			cmdArray = append(cmdArray, arg)
 		}
 		tty := context.Bool("ti")
-
+		detach := context.Bool("d")
 		volume := context.String("v")
-		Run(tty, cmdArray, volume)
+
+		if tty && detach {
+			return fmt.Errorf("ti and d paramter can not both provided")
+		}
+		log.Infof("tty %v", tty)
+		resConf := &subsystems.ResourceConfig{
+			MemoryLimit: context.String("m"),
+			CpuSet:      context.String("cpuset"),
+			CpuShare:    context.String("cpushare"),
+		}
+
+		Run(tty, cmdArray, volume, resConf)
 		return nil
 	},
 }
@@ -54,7 +82,7 @@ var commitCommand = cli.Command{
 	Usage: "commit a container into image",
 	Action: func(context *cli.Context) error {
 		if len(context.Args()) < 1 {
-			return fmt.Errorf("Missing container name")
+			return fmt.Errorf("missing container name")
 		}
 		imageName := context.Args().Get(0)
 		commitContainer(imageName)

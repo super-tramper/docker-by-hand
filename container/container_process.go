@@ -17,6 +17,7 @@ func NewParentProcess(tty bool, volume string) (*exec.Cmd, *os.File) {
 		log.Errorf("New pipe error %v", err)
 		return nil, nil
 	}
+	// 此处调用自身的init命令
 	cmd := exec.Command("/proc/self/exe", "init")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWNS |
@@ -29,11 +30,11 @@ func NewParentProcess(tty bool, volume string) (*exec.Cmd, *os.File) {
 	}
 	// 带着文件句柄创建子进程
 	cmd.ExtraFiles = []*os.File{readPipe}
-	mntURL := "/root/mnt/"
-	rootURL := "/root/"
-	NewWorkSpace(rootURL, mntURL, volume)
+	//mntURL := "/root/mnt/"
+	//rootURL := "/root/"
+	//NewWorkSpace(rootURL, mntURL, volume)
 	// 指定工作目录
-	cmd.Dir = mntURL
+	cmd.Dir = "/root/busybox"
 	return cmd, writePipe
 }
 

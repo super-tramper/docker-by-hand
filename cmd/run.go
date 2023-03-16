@@ -3,6 +3,8 @@
 package cmd
 
 import (
+	"docker/cgroups"
+	"docker/cgroups/subsystems"
 	"docker/container"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -10,7 +12,7 @@ import (
 )
 
 // Run 运行用户命令
-func Run(tty bool, comArray []string, volume string) {
+func Run(tty bool, comArray []string, volume string, res *subsystems.ResourceConfig) {
 	// 对创建出来的进程进行初始化
 	parent, writePipe := container.NewParentProcess(tty, volume)
 	if parent == nil {
@@ -21,13 +23,20 @@ func Run(tty bool, comArray []string, volume string) {
 		log.Error(err)
 	}
 
+	cgroupManager := cgroups.NewCgroupManager("mydocker-cgroup")
+	defer cgroupManager.Destroy()
+	cgroupManager.Set(res)
+	cgroupManager.Apply(parent.Process.Pid)
+
 	// 发送用户指令
 	sendInitCommand(comArray, writePipe)
-	parent.Wait()
-	mntURL := "/root/mnt/"
-	rootURL := "/root/"
-	container.DeleteWorkSpace(rootURL, mntURL, volume)
-	os.Exit(0)
+	if tty {
+		parent.Wait()
+	}
+	//mntURL := "/root/mnt/"
+	//rootURL := "/root/"
+	//container.DeleteWorkSpace(rootURL, mntURL, volume)
+	//os.Exit(0)
 }
 
 func sendInitCommand(comArray []string, writePipe *os.File) {
