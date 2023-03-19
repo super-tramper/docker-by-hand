@@ -30,8 +30,12 @@ func ExecContainer(containerName string, comArray []string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	os.Setenv(ENV_EXEC_PID, pid)
-	os.Setenv(ENV_EXEC_CMD, cmdStr)
+	if err := os.Setenv(ENV_EXEC_PID, pid); err != nil {
+		log.Errorf("set env error: %v", err)
+	}
+	if err := os.Setenv(ENV_EXEC_CMD, cmdStr); err != nil {
+		log.Errorf("set env error: %v", err)
+	}
 
 	if err := cmd.Run(); err != nil {
 		log.Errorf("Exec container %s error %v", containerName, err)
@@ -39,6 +43,20 @@ func ExecContainer(containerName string, comArray []string) {
 }
 
 func getContainerPidByName(containerName string) (string, error) {
+	dirURL := fmt.Sprintf(container.DefaultInfoLocation, containerName)
+	configFilePath := dirURL + container.ConfigName
+	contentBytes, err := ioutil.ReadFile(configFilePath)
+	if err != nil {
+		return "", err
+	}
+	var containerInfo container.ContainerInfo
+	if err := json.Unmarshal(contentBytes, &containerInfo); err != nil {
+		return "", err
+	}
+	return containerInfo.Pid, nil
+}
+
+func GetContainerPidByName(containerName string) (string, error) {
 	dirURL := fmt.Sprintf(container.DefaultInfoLocation, containerName)
 	configFilePath := dirURL + container.ConfigName
 	contentBytes, err := ioutil.ReadFile(configFilePath)
