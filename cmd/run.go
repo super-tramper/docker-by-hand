@@ -19,7 +19,7 @@ import (
 // Run 运行用户命令
 func Run(tty bool, comArray []string, volume string, res *subsystems.ResourceConfig, containerName string) {
 	// 对创建出来的进程进行初始化
-	parent, writePipe := container.NewParentProcess(tty, volume)
+	parent, writePipe := container.NewParentProcess(tty, volume, containerName)
 	if parent == nil {
 		log.Errorf("New parent process error")
 		return
