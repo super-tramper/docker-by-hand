@@ -53,22 +53,26 @@ var runCommand = cli.Command{
 		for _, arg := range context.Args() {
 			cmdArray = append(cmdArray, arg)
 		}
-		tty := context.Bool("ti")
-		detach := context.Bool("d")
-		volume := context.String("v")
 
-		if tty && detach {
+		//get image name
+		imageName := cmdArray[0]
+		cmdArray = cmdArray[1:]
+
+		createTty := context.Bool("ti")
+		detach := context.Bool("d")
+
+		if createTty && detach {
 			return fmt.Errorf("ti and d paramter can not both provided")
 		}
-		log.Infof("tty %v", tty)
 		resConf := &subsystems.ResourceConfig{
 			MemoryLimit: context.String("m"),
 			CpuSet:      context.String("cpuset"),
 			CpuShare:    context.String("cpushare"),
 		}
-
+		log.Infof("createTty %v", createTty)
 		containerName := context.String("name")
-		Run(tty, cmdArray, volume, resConf, containerName)
+		volume := context.String("v")
+		Run(createTty, cmdArray, resConf, containerName, volume, imageName)
 		return nil
 	},
 }
@@ -90,8 +94,9 @@ var commitCommand = cli.Command{
 		if len(context.Args()) < 1 {
 			return fmt.Errorf("missing container name")
 		}
-		imageName := context.Args().Get(0)
-		commitContainer(imageName)
+		containerName := context.Args().Get(0)
+		imageName := context.Args().Get(1)
+		commitContainer(containerName, imageName)
 		return nil
 	},
 }
@@ -123,7 +128,7 @@ var execCommand = cli.Command{
 	Usage: "exec a command into container",
 	Action: func(context *cli.Context) error {
 		if os.Getenv(ENV_EXEC_PID) != "" {
-			log.Infof("pid callback pid %s", os.Getpid())
+			log.Infof("pid callback pid %d", os.Getgid())
 			return nil
 		}
 

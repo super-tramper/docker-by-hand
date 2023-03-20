@@ -19,11 +19,11 @@ func stopContainer(containerName string) {
 	}
 	pidInt, err := strconv.Atoi(pid)
 	if err != nil {
-		log.Errorf("Conver pid from string to int error %v", err)
+		log.Errorf("Convert pid from string to int error %v", err)
 		return
 	}
 	if err := syscall.Kill(pidInt, syscall.SIGTERM); err != nil {
-		log.Errorf("Stop container %s error %v", containerName, err)
+		log.Errorf("Stop container %s, pid %d error %v", containerName, pidInt, err)
 		return
 	}
 	containerInfo, err := getContainerInfoByName(containerName)
@@ -76,4 +76,5 @@ func removeContainer(containerName string) {
 		log.Errorf("Remove file %s error %v", dirURL, err)
 		return
 	}
+	container.DeleteWorkSpace(containerInfo.Volume, containerName)
 }
