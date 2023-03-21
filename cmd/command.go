@@ -44,6 +44,10 @@ var runCommand = cli.Command{
 			Name:  "name",
 			Usage: "container name",
 		},
+		cli.StringSliceFlag{
+			Name:  "e",
+			Usage: "set environment",
+		},
 	},
 	Action: func(context *cli.Context) error {
 		if len(context.Args()) < 1 {
@@ -72,7 +76,8 @@ var runCommand = cli.Command{
 		log.Infof("createTty %v", createTty)
 		containerName := context.String("name")
 		volume := context.String("v")
-		Run(createTty, cmdArray, resConf, containerName, volume, imageName)
+		envSlice := context.StringSlice("e")
+		Run(createTty, cmdArray, envSlice, resConf, containerName, volume, imageName)
 		return nil
 	},
 }

@@ -17,14 +17,14 @@ import (
 )
 
 // Run 运行用户命令
-func Run(tty bool, comArray []string, res *subsystems.ResourceConfig, containerName, volume, imageName string) {
+func Run(tty bool, comArray, envSlice []string, res *subsystems.ResourceConfig, containerName, volume, imageName string) {
 	// 对创建出来的进程进行初始化
 	containerID := randStringBytes(10)
 	if containerName == "" {
 		containerName = containerID
 	}
 
-	parent, writePipe := container.NewParentProcess(tty, containerName, volume, imageName)
+	parent, writePipe := container.NewParentProcess(tty, containerName, volume, imageName, envSlice)
 	if parent == nil {
 		log.Errorf("New parent process error")
 		return
