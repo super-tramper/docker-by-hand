@@ -6,6 +6,7 @@ import (
 	"docker/cgroups"
 	"docker/cgroups/subsystems"
 	"docker/container"
+	"docker/network"
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
@@ -17,7 +18,7 @@ import (
 )
 
 // Run 运行用户命令
-func Run(tty bool, comArray, envSlice []string, res *subsystems.ResourceConfig, containerName, volume, imageName string) {
+func Run(tty bool, comArray, envSlice, portmapping []string, res *subsystems.ResourceConfig, containerName, volume, imageName, nw string) {
 	// 对创建出来的进程进行初始化
 	containerID := randStringBytes(10)
 	if containerName == "" {
@@ -44,6 +45,21 @@ func Run(tty bool, comArray, envSlice []string, res *subsystems.ResourceConfig, 
 	cgroupManager.Set(res)
 	cgroupManager.Apply(parent.Process.Pid)
 
+	if nw != "" {
+		// config container network
+		network.Init()
+		containerInfo := &container.ContainerInfo{
+			Id:          containerID,
+			Pid:         strconv.Itoa(parent.Process.Pid),
+			Name:        containerName,
+			PortMapping: portmapping,
+		}
+		if err := network.Connect(nw, containerInfo); err != nil {
+			log.Errorf("Error Connect Network %v", err)
+			return
+		}
+	}
+
 	// 发送用户指令
 	sendInitCommand(comArray, writePipe)
 	if tty {
@@ -51,10 +67,6 @@ func Run(tty bool, comArray, envSlice []string, res *subsystems.ResourceConfig, 
 		deleteContainerInfo(containerName)
 		container.DeleteWorkSpace(volume, containerName)
 	}
-	//mntURL := "/root/mnt/"
-	//rootURL := "/root/"
-	//container.DeleteWorkSpace(rootURL, mntURL, volume)
-	//os.Exit(0)
 }
 
 func sendInitCommand(comArray []string, writePipe *os.File) {
