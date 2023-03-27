@@ -272,7 +272,10 @@ func configEndpointIpAddressAndRoute(ep *Endpoint, cinfo *container.ContainerInf
 	}
 
 	// 设置容器内的外部请求都通过容器内的Veth端点访问
-	_, cidr, _ := net.ParseCIDR("0.0.0.0/0")
+	_, cidr, err := net.ParseCIDR("0.0.0.0/0")
+	if err != nil {
+		return err
+	}
 
 	// 构建要添加的路由数据，包括网络设备、网关IP及目的网段
 	defaultRoute := &netlink.Route{
@@ -300,7 +303,6 @@ func configPortMapping(ep *Endpoint, cinfo *container.ContainerInfo) error {
 		iptablesCmd := fmt.Sprintf("-t nat -A PREROUTING -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s",
 			portMapping[0], ep.IPAddress.String(), portMapping[1])
 		cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
-		//err := cmd.Run()
 		output, err := cmd.Output()
 		if err != nil {
 			logrus.Errorf("iptables Output, %v", output)
